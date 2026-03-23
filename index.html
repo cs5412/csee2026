@@ -73,20 +73,20 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
 .badge20{background:#EEF5DA;color:var(--olive);}
 
 /* COUNTERS */
-.counters{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
-.cc{background:var(--white);border:3px solid var(--tan);border-radius:18px;
-    padding:18px 10px;text-align:center;transition:border-color .2s,box-shadow .2s;}
+.counters{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+.cc{background:var(--white);border:3px solid var(--tan);border-radius:16px;
+    padding:14px 8px 12px;text-align:center;transition:border-color .2s,box-shadow .2s;}
 .cc.lit10{border-color:var(--orange);box-shadow:0 4px 18px rgba(217,123,58,.25);}
 .cc.lit20{border-color:var(--olive);box-shadow:0 4px 18px rgba(96,112,56,.25);}
-.cc-emoji{font-size:28px;margin-bottom:5px;}
-.cc-name{font-size:14px;font-weight:800;color:var(--brown);margin-bottom:4px;}
-.cc-chip{display:inline-block;border-radius:20px;padding:4px 14px;font-size:15px;font-weight:900;margin-bottom:6px;}
+.cc-emoji{font-size:22px;margin-bottom:3px;}
+.cc-name{font-size:13px;font-weight:800;color:var(--brown);margin-bottom:3px;}
+.cc-chip{display:inline-block;border-radius:20px;padding:3px 12px;font-size:14px;font-weight:900;margin-bottom:0;}
 .chip10{background:#FEF0E0;color:var(--orange);}
 .chip20{background:#EEF5DA;color:var(--olive);}
-.cc-hint{font-size:13px;color:#7a5a3a;line-height:1.5;min-height:30px;}
-.cnt-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px;}
+.cc-hint{display:none;}
+.cnt-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;}
 /* 大按鈕：長輩好按 */
-.cnt-btn{width:52px;height:52px;border-radius:50%;border:2.5px solid;font-size:26px;
+.cnt-btn{width:48px;height:48px;border-radius:50%;border:2.5px solid;font-size:24px;
          line-height:1;font-weight:900;cursor:pointer;display:flex;
          align-items:center;justify-content:center;background:var(--white);
          transition:all .15s;-webkit-tap-highlight-color:transparent;
@@ -97,9 +97,9 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
 .bp10:hover,.bp10:active{background:var(--orange);color:#fff;}
 .bp20{border-color:var(--olive);color:var(--olive);}
 .bp20:hover,.bp20:active{background:var(--olive);color:#fff;}
-.cv{font-size:36px;font-weight:900;color:var(--dark);min-width:42px;text-align:center;line-height:1;}
+.cv{font-size:32px;font-weight:900;color:var(--dark);min-width:36px;text-align:center;line-height:1;}
 /* 計數提示 */
-.cnt-label{font-size:12px;color:var(--brown);margin-top:4px;font-weight:600;}
+.cnt-label{font-size:12px;color:var(--brown);margin-top:3px;font-weight:600;}
 
 /* SUMMARY */
 .summary{background:linear-gradient(135deg,var(--olive) 0%,var(--green) 100%);
@@ -506,7 +506,7 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
 </div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4SXmte9tl7ejvhXAGK0YXBoVsDFa6bjMm08cL7bdxBAXe4gxd5zRkViblf4Bo2v70/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbydeCbZ0xvvtNC0uJQyvgP54GOfXym1TMezSKZ9fI6AOIRpYiufJR8R9uQ1fPRcVHz-CA/exec";
 
 let n10=0, n20=0, ltOpen=false, agreed=false;
 const scaleVals={will:null, satis:null};
