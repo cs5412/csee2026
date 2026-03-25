@@ -599,14 +599,30 @@ function toggleAgree(){
 function handlePhoto(input){
   const file=input.files[0];
   if(!file)return;
-  if(file.size>10*1024*1024){showErr("照片檔案過大，請選擇 10MB 以下的圖片！");input.value="";return;}
-  document.getElementById("photoName").textContent="📁 "+file.name;
+  if(file.size>20*1024*1024){showErr("照片過大，請選擇 20MB 以下的圖片！");input.value="";return;}
+  document.getElementById("photoName").textContent="⏳ 處理中…";
   const reader=new FileReader();
   reader.onload=function(e){
-    photoBase64=e.target.result;
-    const preview=document.getElementById("photoPreview");
-    preview.src=photoBase64;
-    preview.style.display="block";
+    const img=new Image();
+    img.onload=function(){
+      // 縮圖：最長邊壓到 1200px，品質 0.7
+      const MAX=1200, Q=0.7;
+      let w=img.width, h=img.height;
+      if(w>MAX||h>MAX){
+        if(w>h){h=Math.round(h*MAX/w);w=MAX;}
+        else{w=Math.round(w*MAX/h);h=MAX;}
+      }
+      const canvas=document.createElement("canvas");
+      canvas.width=w; canvas.height=h;
+      canvas.getContext("2d").drawImage(img,0,0,w,h);
+      photoBase64=canvas.toDataURL("image/jpeg",Q);
+      const kb=Math.round(photoBase64.length*0.75/1024);
+      document.getElementById("photoName").textContent="✅ 已壓縮（約 "+kb+" KB）";
+      const preview=document.getElementById("photoPreview");
+      preview.src=photoBase64;
+      preview.style.display="block";
+    };
+    img.src=e.target.result;
   };
   reader.readAsDataURL(file);
 }
