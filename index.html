@@ -297,6 +297,15 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
             font-size:13px;font-weight:700;color:var(--teal);cursor:pointer;margin-top:16px;
             display:block;width:100%;-webkit-tap-highlight-color:transparent;}
 
+
+/* UNDO */
+.undo-btn{width:100%;margin-top:10px;padding:12px;border-radius:12px;border:2px solid var(--red);
+          background:var(--white);font-family:"Noto Sans TC",sans-serif;font-size:13px;
+          font-weight:700;color:var(--red);cursor:pointer;-webkit-tap-highlight-color:transparent;
+          transition:all .2s;}
+.undo-btn:hover{background:var(--red);color:#fff;}
+.undo-btn:disabled{opacity:.4;cursor:not-allowed;}
+.undo-msg{font-size:12px;text-align:center;margin-top:8px;min-height:18px;}
 </style>
 </head>
 <body>
@@ -532,7 +541,7 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
       <!-- 📷 上傳照片（必填） -->
       <div class="lt-field photo-box" id="q-photo" style="display:none;">
         <div class="photo-title">📷 上傳消費照片（必填）</div>
-        <div class="photo-hint">請拍攝自備循環容器於店內消費的照片作為憑證，以利活動資格核實，防止重複或虛假申請。<br>支援 JPG / PNG，檔案大小請勿超過 10MB。</div>
+        <div class="photo-hint">請拍攝自備循環容器於店內消費的照片作為憑證，以利活動資格核實，如照片不符自備條件則無法獲得抽獎資格。</div>
         <label class="photo-label" id="photoLabel">
           <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto(this)">
           <span class="photo-icon">📷</span>
@@ -624,6 +633,8 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
   </div>
   <div id="ltBadge"></div>
   <button class="back-btn" onclick="doReset()">← 返回填寫下一筆</button>
+  <button class="undo-btn" id="undoBtn" onclick="doUndo()">↩ 發現填錯？撤銷這筆送出</button>
+  <div class="undo-msg" id="undoMsg"></div>
 </div>
 
 <!-- LOADING -->
@@ -794,11 +805,14 @@ async function doSubmit(){
     photoData:""
   };
 
-  // ★ 立刻跳成功畫面，完全不等 Apps Script 回應
+  // ★ 立刻跳成功畫面，不等 Apps Script 回應
   showSuccess(total,time,name,phone,code);
 
-  // 背景靜默送出，fire-and-forget（不用 withSuccessHandler 等待）
-  google.script.run.submitForm(payload);
+  // 背景靜默送出（需要空 handler 才能正常觸發）
+  google.script.run
+    .withSuccessHandler(function(){})
+    .withFailureHandler(function(){})
+    .submitForm(payload);
 }
 
 function uploadPhotoAfter(time,code,phone){
@@ -815,6 +829,12 @@ function showSuccess(total,time,name,phone,code){
   if(ltOpen&&agreed&&photoBase64){
     setTimeout(()=>uploadPhotoAfter(time,code,phone),800);
   }
+  // 記錄這筆，供撤銷使用
+  lastSubmit={timestamp:time, customerPhone:phone, storeCode:code};
+  const undoBtn=document.getElementById("undoBtn");
+  const undoMsg=document.getElementById("undoMsg");
+  if(undoBtn){undoBtn.disabled=false; undoBtn.style.display="block";}
+  if(undoMsg){undoMsg.textContent="";}
   document.getElementById("r-shop").textContent="🏪 店家代碼："+code;
   document.getElementById("r-when").textContent=time;
   document.getElementById("r-name").textContent=name;
@@ -836,8 +856,38 @@ function showSuccess(total,time,name,phone,code){
 
 function showErr(m){const e=document.getElementById("errMsg");e.textContent="⚠️ "+m;e.className="errmsg show";}
 
+// ── 撤銷送出 ───────────────────────────────────────────────
+let lastSubmit=null;
+function doUndo(){
+  if(!lastSubmit)return;
+  const btn=document.getElementById("undoBtn");
+  const msg=document.getElementById("undoMsg");
+  btn.disabled=true;
+  msg.textContent="撤銷中…";
+  msg.style.color="var(--brown)";
+  google.script.run
+    .withSuccessHandler(function(res){
+      if(res&&res.success){
+        msg.textContent="✅ 已撤銷，正在返回表單…";
+        msg.style.color="var(--olive)";
+        lastSubmit=null;
+        setTimeout(()=>doReset(),1200);
+      } else {
+        msg.textContent="⚠️ 撤銷失敗，請洽客服";
+        msg.style.color="var(--red)";
+        btn.disabled=false;
+      }
+    })
+    .withFailureHandler(function(){
+      msg.textContent="⚠️ 撤銷失敗，請洽客服";
+      msg.style.color="var(--red)";
+      btn.disabled=false;
+    })
+    .cancelSubmit(lastSubmit);
+}
+
 function doReset(){
-  n10=0;n20=0;upd();agreed=false;scaleVals.will=null;scaleVals.satis=null;photoBase64=null;
+  n10=0;n20=0;upd();agreed=false;scaleVals.will=null;scaleVals.satis=null;photoBase64=null;lastSubmit=null;
   ["custName","custPhone","storeCode","lt-email","jobOtherInp","actOtherInp"]
     .forEach(id=>document.getElementById(id).value="");
   document.getElementById("photoInput").value="";
