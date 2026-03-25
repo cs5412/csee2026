@@ -874,29 +874,17 @@ function doUndo(){
   btn.disabled=true;
   msg.textContent="撤銷中…";
   msg.style.color="var(--brown)";
+  // no-cors 無法讀回應，改用樂觀 UI：假設成功，背景刪除
   const cp=new URLSearchParams({action:'cancel',
     timestamp:lastSubmit.timestamp,
     customerPhone:lastSubmit.customerPhone,
     storeCode:lastSubmit.storeCode}).toString();
-  fetch(SCRIPT_URL+'?'+cp,{method:'GET',mode:'cors'})
-    .then(r=>r.json())
-    .then(res=>{
-      if(res&&res.success){
-        msg.textContent="✅ 已撤銷，正在返回表單…";
-        msg.style.color="var(--olive)";
-        lastSubmit=null;
-        setTimeout(()=>doReset(),1200);
-      } else {
-        msg.textContent="⚠️ 撤銷失敗，請洽客服";
-        msg.style.color="var(--red)";
-        btn.disabled=false;
-      }
-    })
-    .catch(()=>{
-      msg.textContent="⚠️ 撤銷失敗，請洽客服";
-      msg.style.color="var(--red)";
-      btn.disabled=false;
-    });
+  fetch(SCRIPT_URL+'?'+cp,{method:'GET',mode:'no-cors'}).catch(()=>{});
+  // 立刻顯示成功並返回表單
+  msg.textContent="✅ 已撤銷，正在返回表單…";
+  msg.style.color="var(--olive)";
+  lastSubmit=null;
+  setTimeout(()=>doReset(),1200);
 }
 
 function doReset(){
@@ -972,28 +960,35 @@ function queryStore(){
   errEl.className="store-err";
   const qbtn=document.querySelector(".store-qbtn");
   qbtn.textContent="查詢中…"; qbtn.disabled=true;
-  fetch(SCRIPT_URL+'?action=query&code='+code+'&month='+encodeURIComponent(month),{method:'GET',mode:'cors'})
-    .then(r=>r.json())
-    .then(res=>{
-      qbtn.textContent="查詢"; qbtn.disabled=false;
-      if(!res||res.error){
-        errEl.textContent="⚠️ 查詢失敗，請稍後再試";
-        errEl.className="store-err show"; return;
-      }
-      const [yr,mo]=month.split("/");
-      document.getElementById("storeResultTitle").textContent=
-        "店家代碼 "+code+" ｜ "+yr+"年"+mo+"月 查詢結果";
-      document.getElementById("sq-count").textContent=res.count;
-      document.getElementById("sq-cnt10").textContent=res.cnt10+" 項";
-      document.getElementById("sq-cnt20").textContent=res.cnt20+" 項";
-      document.getElementById("sq-total").textContent="NT$ "+res.totalDiscount;
-      document.getElementById("storeResult").className="store-result show";
-    })
-    .catch(()=>{
-      qbtn.textContent="查詢"; qbtn.disabled=false;
+  // JSONP：繞過 CORS，用 <script> 注入讀回應
+  const cbName="__sq_"+Date.now();
+  window[cbName]=function(res){
+    delete window[cbName];
+    const s=document.getElementById("jsonp_s");if(s)s.remove();
+    qbtn.textContent="查詢"; qbtn.disabled=false;
+    if(!res||res.error){
       errEl.textContent="⚠️ 查詢失敗，請稍後再試";
-      errEl.className="store-err show";
-    });
+      errEl.className="store-err show"; return;
+    }
+    const [yr,mo]=month.split("/");
+    document.getElementById("storeResultTitle").textContent=
+      "店家代碼 "+code+" ｜ "+yr+"年"+mo+"月 查詢結果";
+    document.getElementById("sq-count").textContent=res.count;
+    document.getElementById("sq-cnt10").textContent=res.cnt10+" 項";
+    document.getElementById("sq-cnt20").textContent=res.cnt20+" 項";
+    document.getElementById("sq-total").textContent="NT$ "+res.totalDiscount;
+    document.getElementById("storeResult").className="store-result show";
+  };
+  const sc=document.createElement("script");
+  sc.id="jsonp_s";
+  sc.onerror=function(){
+    delete window[cbName];sc.remove();
+    qbtn.textContent="查詢"; qbtn.disabled=false;
+    errEl.textContent="⚠️ 查詢失敗，請稍後再試";
+    errEl.className="store-err show";
+  };
+  sc.src=SCRIPT_URL+'?action=query&code='+code+'&month='+encodeURIComponent(month)+'&callback='+cbName;
+  document.body.appendChild(sc);
 }
 </script>
 </body>
