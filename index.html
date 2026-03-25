@@ -611,7 +611,7 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
   <div class="suc-icon">🎉</div>
   <div class="suc-title">折扣已記錄！</div>
   <div class="suc-sub">請向店家出示此憑證<br>店家確認後即享折扣優惠<br>
-    <span style="font-size:12px;color:var(--teal);">如有疑問請洽官方LINE@客服：https://lin.ee/zP7pJEP</span>
+    <span style="font-size:12px;color:var(--teal);">💬 如有疑問請洽 <a href="https://lin.ee/zP7pJEP" target="_blank" style="color:var(--teal);font-weight:700;text-decoration:underline;">官方LINE@客服</a></span>
   </div>
   <div class="receipt">
     <div class="r-head">
@@ -647,6 +647,7 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
 </div>
 
 <script>
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbw5oWLb0RGYD0oCg8qoMt_X3TSjmm0h0FvXerL3XqlSvs4A1CvtIVpxgimIP7HBegmsJQ/exec";
 let n10=0, n20=0, ltOpen=false, agreed=false;
 const scaleVals={will:null, satis:null};
 let photoBase64 = null;
@@ -808,23 +809,28 @@ async function doSubmit(){
     photoData:""
   };
 
-  // ★ 立刻跳成功畫面，不等 Apps Script 回應
+  // ★ 立刻跳成功畫面，不等伺服器回應
   showSuccess(total,time,name,phone,code);
 
-  // 背景靜默送出（需要空 handler 才能正常觸發）
-  google.script.run
-    .withSuccessHandler(function(){})
-    .withFailureHandler(function(){})
-    .submitForm(payload);
+  // 背景 fire-and-forget 送出（mode:no-cors 不等回應，瞬間完成）
+  const params=new URLSearchParams(payload).toString();
+  fetch(SCRIPT_URL+'?action=submit&'+params,{method:'GET',mode:'no-cors'}).catch(()=>{});
 }
 
 function uploadPhotoAfter(time,code,phone){
   if(!photoBase64)return;
-  const pp={rowTimestamp:time,storeCode:code,customerPhone:phone,photoData:photoBase64};
-  google.script.run
-    .withSuccessHandler(()=>{})
-    .withFailureHandler(()=>{})
-    .uploadPhoto(pp);
+  fetch(SCRIPT_URL,{
+    method:'POST',
+    mode:'no-cors',
+    headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({
+      action:'photo',
+      rowTimestamp:time,
+      storeCode:code,
+      customerPhone:phone,
+      photoData:photoBase64
+    })
+  }).catch(()=>{});
 }
 
 function showSuccess(total,time,name,phone,code){
@@ -868,8 +874,13 @@ function doUndo(){
   btn.disabled=true;
   msg.textContent="撤銷中…";
   msg.style.color="var(--brown)";
-  google.script.run
-    .withSuccessHandler(function(res){
+  const cp=new URLSearchParams({action:'cancel',
+    timestamp:lastSubmit.timestamp,
+    customerPhone:lastSubmit.customerPhone,
+    storeCode:lastSubmit.storeCode}).toString();
+  fetch(SCRIPT_URL+'?'+cp,{method:'GET',mode:'cors'})
+    .then(r=>r.json())
+    .then(res=>{
       if(res&&res.success){
         msg.textContent="✅ 已撤銷，正在返回表單…";
         msg.style.color="var(--olive)";
@@ -881,12 +892,11 @@ function doUndo(){
         btn.disabled=false;
       }
     })
-    .withFailureHandler(function(){
+    .catch(()=>{
       msg.textContent="⚠️ 撤銷失敗，請洽客服";
       msg.style.color="var(--red)";
       btn.disabled=false;
-    })
-    .cancelSubmit(lastSubmit);
+    });
 }
 
 function doReset(){
@@ -962,27 +972,28 @@ function queryStore(){
   errEl.className="store-err";
   const qbtn=document.querySelector(".store-qbtn");
   qbtn.textContent="查詢中…"; qbtn.disabled=true;
-  google.script.run
-    .withSuccessHandler(function(res){
+  fetch(SCRIPT_URL+'?action=query&code='+code+'&month='+encodeURIComponent(month),{method:'GET',mode:'cors'})
+    .then(r=>r.json())
+    .then(res=>{
       qbtn.textContent="查詢"; qbtn.disabled=false;
       if(!res||res.error){
         errEl.textContent="⚠️ 查詢失敗，請稍後再試";
         errEl.className="store-err show"; return;
       }
+      const [yr,mo]=month.split("/");
       document.getElementById("storeResultTitle").textContent=
-        "店家代碼 "+code+" ｜ "+month.replace("/","年").replace(/^(\d+年)(\d+)$/,"$1$2月")+" 查詢結果";
+        "店家代碼 "+code+" ｜ "+yr+"年"+mo+"月 查詢結果";
       document.getElementById("sq-count").textContent=res.count;
       document.getElementById("sq-cnt10").textContent=res.cnt10+" 項";
       document.getElementById("sq-cnt20").textContent=res.cnt20+" 項";
       document.getElementById("sq-total").textContent="NT$ "+res.totalDiscount;
       document.getElementById("storeResult").className="store-result show";
     })
-    .withFailureHandler(function(){
+    .catch(()=>{
       qbtn.textContent="查詢"; qbtn.disabled=false;
       errEl.textContent="⚠️ 查詢失敗，請稍後再試";
       errEl.className="store-err show";
-    })
-    .queryStore(code, month);
+    });
 }
 </script>
 </body>
