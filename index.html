@@ -685,12 +685,11 @@ function handlePhoto(input){
     const img=new Image();
     img.onload=function(){
       // 縮圖：最長邊壓到 1200px，品質 0.7
-      const MAX=1200, Q=0.7;
+      const MAX=400, Q=0.5;
       let w=img.width, h=img.height;
-      if(w>MAX||h>MAX){
-        if(w>h){h=Math.round(h*MAX/w);w=MAX;}
-        else{w=Math.round(w*MAX/h);h=MAX;}
-      }
+      if(w>h&&w>MAX){h=Math.round(h*MAX/w);w=MAX;}
+      else if(h>w&&h>MAX){w=Math.round(w*MAX/h);h=MAX;}
+      else if(w>MAX){w=MAX;h=MAX;}
       const canvas=document.createElement("canvas");
       canvas.width=w; canvas.height=h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
@@ -795,21 +794,27 @@ async function doSubmit(){
     photoData:""
   };
 
+  // ★ 立刻跳成功畫面，完全不等 Apps Script 回應
+  showSuccess(total,time,name,phone,code);
+
+  // 背景靜默送出，fire-and-forget（不用 withSuccessHandler 等待）
+  google.script.run.submitForm(payload);
+}
+
+function uploadPhotoAfter(time,code,phone){
+  if(!photoBase64)return;
+  const pp={rowTimestamp:time,storeCode:code,customerPhone:phone,photoData:photoBase64};
   google.script.run
-    .withSuccessHandler(()=>{
-      showSuccess(total,time,name,phone,code);
-      // 照片在背景靜默上傳，不阻擋畫面
-      if(ltOpen&&agreed&&photoBase64){
-        const pp={rowTimestamp:time,storeCode:code,customerPhone:phone,photoData:photoBase64};
-        google.script.run.uploadPhoto(pp);
-      }
-    })
-    .withFailureHandler(()=>{showSuccess(total,time,name,phone,code);})
-    .submitForm(payload);
+    .withSuccessHandler(()=>{})
+    .withFailureHandler(()=>{})
+    .uploadPhoto(pp);
 }
 
 function showSuccess(total,time,name,phone,code){
   document.getElementById("ov").classList.remove("show");
+  if(ltOpen&&agreed&&photoBase64){
+    setTimeout(()=>uploadPhotoAfter(time,code,phone),800);
+  }
   document.getElementById("r-shop").textContent="🏪 店家代碼："+code;
   document.getElementById("r-when").textContent=time;
   document.getElementById("r-name").textContent=name;
