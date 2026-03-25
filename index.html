@@ -255,6 +255,48 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
 /* ANIMATIONS */
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
 .fw>*{animation:fadeUp .4s ease both;}
+
+/* STORE QUERY */
+.store-btn{width:100%;max-width:480px;margin:20px 0 0;padding:14px;border-radius:14px;
+           border:2.5px solid var(--teal);background:var(--white);
+           font-family:"Noto Sans TC",sans-serif;font-size:15px;font-weight:700;
+           color:var(--teal);cursor:pointer;display:flex;align-items:center;
+           justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent;
+           transition:all .2s;}
+.store-btn:hover{background:var(--teal);color:#fff;}
+.store-sec{display:none;width:100%;max-width:480px;padding:24px 20px;}
+.store-title{font-size:20px;font-weight:900;color:var(--teal);margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+.store-sub{font-size:13px;color:var(--brown);margin-bottom:20px;}
+.store-code-wrap{display:flex;gap:10px;margin-bottom:14px;align-items:center;}
+.store-code-inp{flex:1;border:2.5px solid var(--teal);border-radius:12px;padding:12px 14px;
+                font-family:"Noto Sans TC",sans-serif;font-size:22px;font-weight:900;
+                color:var(--dark);text-align:center;background:var(--white);outline:none;
+                -webkit-appearance:none;letter-spacing:4px;}
+.store-code-inp:focus{box-shadow:0 0 0 3px rgba(58,138,122,.15);}
+.store-qbtn{padding:12px 20px;border-radius:12px;border:none;background:var(--teal);
+            color:#fff;font-family:"Noto Sans TC",sans-serif;font-size:15px;font-weight:700;
+            cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap;}
+.store-month{border:2px solid var(--tan);border-radius:10px;padding:10px 12px;
+             font-family:"Noto Sans TC",sans-serif;font-size:14px;color:var(--dark);
+             background:var(--white);outline:none;margin-bottom:16px;width:100%;}
+.store-result{background:var(--white);border:2.5px solid var(--teal);border-radius:16px;
+              padding:20px;display:none;}
+.store-result.show{display:block;}
+.store-r-title{font-size:14px;font-weight:700;color:var(--teal);margin-bottom:14px;
+               border-bottom:1.5px dashed var(--tan);padding-bottom:10px;}
+.store-stat{display:flex;justify-content:space-between;align-items:center;
+            padding:12px 0;border-bottom:1px dashed var(--tan);font-size:14px;color:var(--dark);}
+.store-stat:last-child{border-bottom:none;}
+.store-stat-val{font-size:24px;font-weight:900;color:var(--teal);}
+.store-stat-val.orange{color:var(--orange);}
+.store-empty{text-align:center;padding:20px;font-size:14px;color:var(--brown);}
+.store-err{color:var(--red);font-size:13px;text-align:center;margin-top:8px;display:none;}
+.store-err.show{display:block;}
+.store-back{border:2px solid var(--teal);border-radius:10px;padding:10px 20px;
+            background:var(--white);font-family:"Noto Sans TC",sans-serif;
+            font-size:13px;font-weight:700;color:var(--teal);cursor:pointer;margin-top:16px;
+            display:block;width:100%;-webkit-tap-highlight-color:transparent;}
+
 </style>
 </head>
 <body>
@@ -515,6 +557,43 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
   </div>
 </div>
 
+
+<!-- STORE QUERY BUTTON -->
+<button class="store-btn" onclick="showStoreSec()">🏪 店家查詢當月折扣</button>
+
+<!-- STORE QUERY PAGE -->
+<div class="store-sec" id="storeSec">
+  <div class="store-title">🏪 店家折扣查詢</div>
+  <div class="store-sub">輸入店家代碼，查詢當月累計折扣資料</div>
+  <div class="store-code-wrap">
+    <input class="store-code-inp" id="storeQCode" type="number" placeholder="001" min="1" max="120"
+           oninput="if(this.value.length>3)this.value=this.value.slice(0,3)">
+    <button class="store-qbtn" onclick="queryStore()">查詢</button>
+  </div>
+  <select class="store-month" id="storeQMonth"></select>
+  <div class="store-err" id="storeErr"></div>
+  <div class="store-result" id="storeResult">
+    <div class="store-r-title" id="storeResultTitle"></div>
+    <div class="store-stat">
+      <span>📋 折扣筆數</span>
+      <span class="store-stat-val" id="sq-count">0</span>
+    </div>
+    <div class="store-stat">
+      <span>🧾 40-79元 項數合計</span>
+      <span class="store-stat-val" id="sq-cnt10">0</span>
+    </div>
+    <div class="store-stat">
+      <span>🧾 80元以上 項數合計</span>
+      <span class="store-stat-val" id="sq-cnt20">0</span>
+    </div>
+    <div class="store-stat">
+      <span>💰 折扣總金額</span>
+      <span class="store-stat-val orange" id="sq-total">NT$ 0</span>
+    </div>
+  </div>
+  <button class="store-back" onclick="hideStoreSec()">← 返回活動表單</button>
+</div>
+
 <!-- SUCCESS -->
 <div class="suc" id="sucSec">
   <div class="suc-icon">🎉</div>
@@ -701,6 +780,7 @@ async function doSubmit(){
   document.getElementById("ov").classList.add("show");
   document.getElementById("subBtn").disabled=true;
 
+  // 主表單不帶照片，讓送出瞬間完成
   const payload={
     timestamp:time, customerName:name, customerPhone:phone, storeCode:code,
     cnt10:n10, disc10:n10*10, cnt20:n20, disc20:n20*20, totalDiscount:total,
@@ -712,11 +792,18 @@ async function doSubmit(){
     acttype:ltOpen?actVal:"",
     willingness:ltOpen&&scaleVals.will!==null?scaleVals.will:"",
     satisfaction:ltOpen&&scaleVals.satis!==null?scaleVals.satis:"",
-    photoData:ltOpen&&agreed&&photoBase64?photoBase64:""
+    photoData:""
   };
 
   google.script.run
-    .withSuccessHandler(()=>{showSuccess(total,time,name,phone,code);})
+    .withSuccessHandler(()=>{
+      showSuccess(total,time,name,phone,code);
+      // 照片在背景靜默上傳，不阻擋畫面
+      if(ltOpen&&agreed&&photoBase64){
+        const pp={rowTimestamp:time,storeCode:code,customerPhone:phone,photoData:photoBase64};
+        google.script.run.uploadPhoto(pp);
+      }
+    })
     .withFailureHandler(()=>{showSuccess(total,time,name,phone,code);})
     .submitForm(payload);
 }
@@ -770,6 +857,74 @@ function doReset(){
   document.getElementById("sucSec").style.display="none";
   document.getElementById("formSec").style.display="block";
   window.scrollTo({top:0,behavior:"smooth"});
+}
+
+// ── Store query ──────────────────────────────────────────
+function showStoreSec(){
+  // build month options (this month + past 5)
+  const sel=document.getElementById("storeQMonth");
+  sel.innerHTML="";
+  const now=new Date();
+  for(let i=0;i<6;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const val=d.getFullYear()+"/"+String(d.getMonth()+1).padStart(2,"0");
+    const label=d.getFullYear()+"年"+(d.getMonth()+1)+"月";
+    const opt=document.createElement("option");
+    opt.value=val; opt.textContent=label;
+    sel.appendChild(opt);
+  }
+  document.getElementById("storeSec").style.display="block";
+  document.getElementById("storeQCode").value="";
+  document.getElementById("storeResult").className="store-result";
+  document.getElementById("storeErr").className="store-err";
+  // hide other sections
+  document.getElementById("formSec").style.display="none";
+  document.getElementById("sucSec").style.display="none";
+  document.querySelector(".store-btn").style.display="none";
+  document.getElementById("storeSec").scrollIntoView({behavior:"smooth"});
+}
+function hideStoreSec(){
+  document.getElementById("storeSec").style.display="none";
+  document.getElementById("formSec").style.display="block";
+  document.querySelector(".store-btn").style.display="flex";
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function queryStore(){
+  const raw=document.getElementById("storeQCode").value.trim();
+  const errEl=document.getElementById("storeErr");
+  errEl.className="store-err";
+  if(!raw||isNaN(raw)||Number(raw)<1||Number(raw)>120){
+    errEl.textContent="⚠️ 請輸入有效的店家代碼（001～120）";
+    errEl.className="store-err show";
+    return;
+  }
+  const code=String(Number(raw)).padStart(3,"0");
+  const month=document.getElementById("storeQMonth").value;
+  document.getElementById("storeResult").className="store-result";
+  errEl.className="store-err";
+  const qbtn=document.querySelector(".store-qbtn");
+  qbtn.textContent="查詢中…"; qbtn.disabled=true;
+  google.script.run
+    .withSuccessHandler(function(res){
+      qbtn.textContent="查詢"; qbtn.disabled=false;
+      if(!res||res.error){
+        errEl.textContent="⚠️ 查詢失敗，請稍後再試";
+        errEl.className="store-err show"; return;
+      }
+      document.getElementById("storeResultTitle").textContent=
+        "店家代碼 "+code+" ｜ "+month.replace("/","年").replace(/^(\d+年)(\d+)$/,"$1$2月")+" 查詢結果";
+      document.getElementById("sq-count").textContent=res.count;
+      document.getElementById("sq-cnt10").textContent=res.cnt10+" 項";
+      document.getElementById("sq-cnt20").textContent=res.cnt20+" 項";
+      document.getElementById("sq-total").textContent="NT$ "+res.totalDiscount;
+      document.getElementById("storeResult").className="store-result show";
+    })
+    .withFailureHandler(function(){
+      qbtn.textContent="查詢"; qbtn.disabled=false;
+      errEl.textContent="⚠️ 查詢失敗，請稍後再試";
+      errEl.className="store-err show";
+    })
+    .queryStore(code, month);
 }
 </script>
 </body>
