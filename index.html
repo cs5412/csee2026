@@ -257,13 +257,14 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
 .fw>*{animation:fadeUp .4s ease both;}
 
 /* STORE QUERY */
-.store-btn{width:100%;max-width:480px;margin:20px 0 0;padding:14px;border-radius:14px;
-           border:2.5px solid var(--teal);background:var(--white);
-           font-family:"Noto Sans TC",sans-serif;font-size:15px;font-weight:700;
-           color:var(--teal);cursor:pointer;display:flex;align-items:center;
-           justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent;
-           transition:all .2s;}
-.store-btn:hover{background:var(--teal);color:#fff;}
+.store-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;
+           margin:14px auto 0;padding:7px 16px;border-radius:20px;
+           border:1.5px solid #b0c8c0;background:transparent;
+           font-family:"Noto Sans TC",sans-serif;font-size:12px;font-weight:700;
+           color:#7aaa9a;cursor:pointer;-webkit-tap-highlight-color:transparent;
+           transition:all .2s;width:auto;}
+.store-btn:hover{border-color:var(--teal);color:var(--teal);background:#f0faf8;}
+.store-btn-wrap{width:100%;max-width:480px;text-align:center;}
 .store-sec{display:none;width:100%;max-width:480px;padding:24px 20px;}
 .store-title{font-size:20px;font-weight:900;color:var(--teal);margin-bottom:4px;display:flex;align-items:center;gap:8px;}
 .store-sub{font-size:13px;color:var(--brown);margin-bottom:20px;}
@@ -571,40 +572,8 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
 
 
 <!-- STORE QUERY BUTTON -->
-<button class="store-btn" onclick="showStoreSec()">🏪 店家查詢當月折扣</button>
+<div class="store-btn-wrap"><button class="store-btn" onclick="openStoreQuery()">🏪 店家查詢折扣統計</button></div>
 
-<!-- STORE QUERY PAGE -->
-<div class="store-sec" id="storeSec">
-  <div class="store-title">🏪 店家折扣查詢</div>
-  <div class="store-sub">輸入店家代碼，查詢當月累計折扣資料</div>
-  <div class="store-code-wrap">
-    <input class="store-code-inp" id="storeQCode" type="number" placeholder="001" min="1" max="120"
-           oninput="if(this.value.length>3)this.value=this.value.slice(0,3)">
-    <button class="store-qbtn" onclick="queryStore()">查詢</button>
-  </div>
-  <select class="store-month" id="storeQMonth"></select>
-  <div class="store-err" id="storeErr"></div>
-  <div class="store-result" id="storeResult">
-    <div class="store-r-title" id="storeResultTitle"></div>
-    <div class="store-stat">
-      <span>📋 折扣筆數</span>
-      <span class="store-stat-val" id="sq-count">0</span>
-    </div>
-    <div class="store-stat">
-      <span>🧾 40-79元 項數合計</span>
-      <span class="store-stat-val" id="sq-cnt10">0</span>
-    </div>
-    <div class="store-stat">
-      <span>🧾 80元以上 項數合計</span>
-      <span class="store-stat-val" id="sq-cnt20">0</span>
-    </div>
-    <div class="store-stat">
-      <span>💰 折扣總金額</span>
-      <span class="store-stat-val orange" id="sq-total">NT$ 0</span>
-    </div>
-  </div>
-  <button class="store-back" onclick="hideStoreSec()">← 返回活動表單</button>
-</div>
 
 <!-- SUCCESS -->
 <div class="suc" id="sucSec">
@@ -874,14 +843,13 @@ function doUndo(){
   btn.disabled=true;
   msg.textContent="撤銷中…";
   msg.style.color="var(--brown)";
-  // no-cors 無法讀回應，改用樂觀 UI：假設成功，背景刪除
+  // no-cors：送出撤銷請求（後台標記「已撤銷」），立刻回表單
   const cp=new URLSearchParams({action:'cancel',
     timestamp:lastSubmit.timestamp,
     customerPhone:lastSubmit.customerPhone,
     storeCode:lastSubmit.storeCode}).toString();
   fetch(SCRIPT_URL+'?'+cp,{method:'GET',mode:'no-cors'}).catch(()=>{});
-  // 立刻顯示成功並返回表單
-  msg.textContent="✅ 已撤銷，正在返回表單…";
+  msg.textContent="✅ 撤銷已送出，正在返回表單…";
   msg.style.color="var(--olive)";
   lastSubmit=null;
   setTimeout(()=>doReset(),1200);
@@ -915,80 +883,9 @@ function doReset(){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
-// ── Store query ──────────────────────────────────────────
-function showStoreSec(){
-  // build month options (this month + past 5)
-  const sel=document.getElementById("storeQMonth");
-  sel.innerHTML="";
-  const now=new Date();
-  for(let i=0;i<6;i++){
-    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-    const val=d.getFullYear()+"/"+String(d.getMonth()+1).padStart(2,"0");
-    const label=d.getFullYear()+"年"+(d.getMonth()+1)+"月";
-    const opt=document.createElement("option");
-    opt.value=val; opt.textContent=label;
-    sel.appendChild(opt);
-  }
-  document.getElementById("storeSec").style.display="block";
-  document.getElementById("storeQCode").value="";
-  document.getElementById("storeResult").className="store-result";
-  document.getElementById("storeErr").className="store-err";
-  // hide other sections
-  document.getElementById("formSec").style.display="none";
-  document.getElementById("sucSec").style.display="none";
-  document.querySelector(".store-btn").style.display="none";
-  document.getElementById("storeSec").scrollIntoView({behavior:"smooth"});
-}
-function hideStoreSec(){
-  document.getElementById("storeSec").style.display="none";
-  document.getElementById("formSec").style.display="block";
-  document.querySelector(".store-btn").style.display="flex";
-  window.scrollTo({top:0,behavior:"smooth"});
-}
-function queryStore(){
-  const raw=document.getElementById("storeQCode").value.trim();
-  const errEl=document.getElementById("storeErr");
-  errEl.className="store-err";
-  if(!raw||isNaN(raw)||Number(raw)<1||Number(raw)>120){
-    errEl.textContent="⚠️ 請輸入有效的店家代碼（001～120）";
-    errEl.className="store-err show";
-    return;
-  }
-  const code=String(Number(raw)).padStart(3,"0");
-  const month=document.getElementById("storeQMonth").value;
-  document.getElementById("storeResult").className="store-result";
-  errEl.className="store-err";
-  const qbtn=document.querySelector(".store-qbtn");
-  qbtn.textContent="查詢中…"; qbtn.disabled=true;
-  // JSONP：繞過 CORS，用 <script> 注入讀回應
-  const cbName="__sq_"+Date.now();
-  window[cbName]=function(res){
-    delete window[cbName];
-    const s=document.getElementById("jsonp_s");if(s)s.remove();
-    qbtn.textContent="查詢"; qbtn.disabled=false;
-    if(!res||res.error){
-      errEl.textContent="⚠️ 查詢失敗，請稍後再試";
-      errEl.className="store-err show"; return;
-    }
-    const [yr,mo]=month.split("/");
-    document.getElementById("storeResultTitle").textContent=
-      "店家代碼 "+code+" ｜ "+yr+"年"+mo+"月 查詢結果";
-    document.getElementById("sq-count").textContent=res.count;
-    document.getElementById("sq-cnt10").textContent=res.cnt10+" 項";
-    document.getElementById("sq-cnt20").textContent=res.cnt20+" 項";
-    document.getElementById("sq-total").textContent="NT$ "+res.totalDiscount;
-    document.getElementById("storeResult").className="store-result show";
-  };
-  const sc=document.createElement("script");
-  sc.id="jsonp_s";
-  sc.onerror=function(){
-    delete window[cbName];sc.remove();
-    qbtn.textContent="查詢"; qbtn.disabled=false;
-    errEl.textContent="⚠️ 查詢失敗，請稍後再試";
-    errEl.className="store-err show";
-  };
-  sc.src=SCRIPT_URL+'?action=query&code='+code+'&month='+encodeURIComponent(month)+'&callback='+cbName;
-  document.body.appendChild(sc);
+// ── Store query: open in new window from Apps Script ────────
+function openStoreQuery(){
+  window.open('https://cs5412.github.io/csee2026.store/','_blank');
 }
 </script>
 </body>
