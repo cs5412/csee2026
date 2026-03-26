@@ -309,6 +309,14 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
 .undo-msg{font-size:12px;text-align:center;margin-top:8px;min-height:18px;}
 
 .cc.dim{opacity:.45;filter:grayscale(.4);}
+
+/* LOCKED COUNTER */
+.cc.locked{opacity:.22;pointer-events:none;filter:grayscale(.6);}
+.code-type-hint{font-size:12px;font-weight:700;text-align:center;padding:6px 12px;
+                border-radius:10px;margin-bottom:10px;display:none;}
+.code-type-hint.show{display:block;}
+.code-type-10{background:#FEF0E0;color:var(--orange);}
+.code-type-20{background:#EEF5DA;color:var(--olive);}
 </style>
 </head>
 <body>
@@ -361,12 +369,13 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
       <input class="inp" id="custName"  type="text" placeholder="您的姓名 ＊" autocomplete="off">
       <input class="inp" id="custPhone" type="tel"  placeholder="聯絡電話 ＊" autocomplete="off">
     </div>
-    <input class="inp" id="storeCode" type="number" placeholder="店家代碼（數字）＊" autocomplete="off">
+    <input class="inp" id="storeCode" type="number" placeholder="店家代碼（數字）＊" autocomplete="off" oninput="onCodeInput()">
     <div class="hint">📍 店家代碼請參考結帳處標示，如有疑問請詢問店員</div>
   </div>
 
   <!-- 折扣 -->
   <div class="sec-label">💰 折扣項數（外帶）</div>
+  <div class="code-type-hint" id="codeHint"></div>
   <div class="counters">
     <div class="cc" id="card10">
       <div class="cc-emoji">🥤🍱</div>
@@ -623,11 +632,50 @@ let n10=0, n20=0, ltOpen=false, agreed=false;
 const scaleVals={will:null, satis:null};
 let photoBase64 = null;
 
+// 依店家代碼判斷折扣類型 101-299→折10, 301-399→折20
+function getCodeType(code){
+  const n=Number(code);
+  if(n>=101&&n<=299) return 10;
+  if(n>=301&&n<=399) return 20;
+  return 0; // 未填或不明
+}
+
+function onCodeInput(){
+  const code=document.getElementById("storeCode").value.trim();
+  lockDiscountByCode(code);
+  n10=0; n20=0; upd();
+}
+
+function lockDiscountByCode(code){
+  const t=getCodeType(code);
+  const c10=document.getElementById("card10");
+  const c20=document.getElementById("card20");
+  const hint=document.getElementById("codeHint");
+  // reset
+  c10.classList.remove("locked","dim"); c20.classList.remove("locked","dim");
+  hint.className="code-type-hint"; hint.textContent="";
+  if(t===10){
+    c20.classList.add("locked");
+    hint.className="code-type-hint code-type-10 show";
+    hint.textContent="🥤🍱 此店家代碼（飲料／40元餐飲），只可選擇「折 10 元」";
+  } else if(t===20){
+    c10.classList.add("locked");
+    hint.className="code-type-hint code-type-20 show";
+    hint.textContent="🍱🥡 此店家代碼（80元餐飲），只可選擇「折 20 元」";
+  }
+}
+
 function ch10(d){
+  const code=document.getElementById("storeCode").value.trim();
+  const t=getCodeType(code);
+  if(t===20){showErr("此店家只適用「折 20 元」！");return;}
   if(d>0&&n20>0){showErr("每次消費只能選擇一種折扣方案！");return;}
   n10=Math.max(0,n10+d);upd();
 }
 function ch20(d){
+  const code=document.getElementById("storeCode").value.trim();
+  const t=getCodeType(code);
+  if(t===10){showErr("此店家只適用「折 10 元」！");return;}
   if(d>0&&n10>0){showErr("每次消費只能選擇一種折扣方案！");return;}
   n20=Math.max(0,n20+d);upd();
 }
@@ -751,6 +799,9 @@ async function doSubmit(){
   if(!phone){showErr("請填寫聯絡電話！");return;}
   if(!code){showErr("請填寫店家代碼！");return;}
   if(n10===0&&n20===0){showErr("請至少選擇一項折扣項數！");return;}
+  {const t=getCodeType(code);
+   if(t===10&&n20>0){showErr("此店家代碼只適用「折 10 元」，請清除折 20 元的數量！");return;}
+   if(t===20&&n10>0){showErr("此店家代碼只適用「折 20 元」，請清除折 10 元的數量！");return;}}
 
   if(ltOpen&&agreed){
     if(!getRadio("age")){showErr("請選擇您的年齡！");return;}
@@ -888,6 +939,8 @@ function doReset(){
   document.getElementById("ltArr").className="lt-arr";
   document.getElementById("sucSec").style.display="none";
   document.getElementById("formSec").style.display="block";
+  // 清除折扣鎖定
+  lockDiscountByCode("");
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
