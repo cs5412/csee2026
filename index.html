@@ -729,8 +729,8 @@ function handlePhoto(input){
   reader.onload=function(e){
     const img=new Image();
     img.onload=function(){
-      // 長邊 400px、短邊等比，品質 0.65 → 約 15-30 KB
-      const LONG=400, Q=0.65;
+      // 長邊 200px Q=0.65 → base64 約 7-12KB → 可放進 GET URL
+      const LONG=200, Q=0.65;
       let w=img.width, h=img.height;
       if(w>=h&&w>LONG){h=Math.round(h*LONG/w);w=LONG;}
       else if(h>w&&h>LONG){w=Math.round(w*LONG/h);h=LONG;}
@@ -837,7 +837,10 @@ async function doSubmit(){
   document.getElementById("ov").classList.add("show");
   document.getElementById("subBtn").disabled=true;
 
-  // 主表單不帶照片，讓送出瞬間完成
+  // ★ 立刻跳成功畫面
+  showSuccess(total,time,name,phone,code);
+
+  // 照片壓縮到 200px，base64 約 8-12KB，直接放進 GET URL
   const payload={
     timestamp:time, customerName:name, customerPhone:phone, storeCode:code,
     cnt10:n10, disc10:n10*10, cnt20:n20, disc20:n20*20, totalDiscount:total,
@@ -849,35 +852,15 @@ async function doSubmit(){
     acttype:ltOpen?actVal:"",
     willingness:ltOpen&&scaleVals.will!==null?scaleVals.will:"",
     satisfaction:ltOpen&&scaleVals.satis!==null?scaleVals.satis:"",
-    photoData:""
+    photo:ltOpen&&agreed&&photoBase64?photoBase64:""
   };
-
-  // ★ 立刻跳成功畫面，不等伺服器回應
-  showSuccess(total,time,name,phone,code);
-
-  // 背景 fire-and-forget 送出（mode:no-cors 不等回應，瞬間完成）
   const params=new URLSearchParams(payload).toString();
   fetch(SCRIPT_URL+'?action=submit&'+params,{method:'GET',mode:'no-cors'}).catch(()=>{});
 }
 
-function uploadPhotoAfter(time,code,phone){
-  if(!photoBase64)return;
-  // GET 請求：photo data 壓縮後約 1KB，可放進 URL param
-  const p=new URLSearchParams({
-    action:'photo',
-    ts:time,
-    code:code,
-    phone:phone,
-    d:photoBase64
-  }).toString();
-  fetch(SCRIPT_URL+'?'+p,{method:'GET',mode:'no-cors'}).catch(()=>{});
-}
-
 function showSuccess(total,time,name,phone,code){
   document.getElementById("ov").classList.remove("show");
-  if(ltOpen&&agreed&&photoBase64){
-    setTimeout(()=>uploadPhotoAfter(time,code,phone),800);
-  }
+
   // 記錄這筆，供撤銷使用
   lastSubmit={timestamp:time, customerPhone:phone, storeCode:code};
   const undoBtn=document.getElementById("undoBtn");
@@ -931,10 +914,12 @@ function doUndo(){
   msg.textContent="撤銷中…";
   msg.style.color="var(--brown)";
   // no-cors：送出撤銷請求（後台標記「已撤銷」），立刻回表單
-  const cp=new URLSearchParams({action:'cancel',
-    timestamp:lastSubmit.timestamp,
-    customerPhone:lastSubmit.customerPhone,
-    storeCode:lastSubmit.storeCode}).toString();
+  // 只傳電話號碼，後台標記最近一筆
+  const cp=new URLSearchParams({
+    action:'cancel',
+    phone:lastSubmit.customerPhone,
+    code:lastSubmit.storeCode
+  }).toString();
   fetch(SCRIPT_URL+'?'+cp,{method:'GET',mode:'no-cors'}).catch(()=>{});
   msg.textContent="✅ 撤銷已送出，正在返回表單…";
   msg.style.color="var(--olive)";
