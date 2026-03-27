@@ -725,11 +725,12 @@ function handlePhoto(input){
     const img=new Image();
     img.onload=function(){
       // 縮圖：最長邊壓到 1200px，品質 0.7
-      const MAX=400, Q=0.5;
+      // 縮到 80px、品質 0.6 → 約 1KB → 可放進 GET URL
+      const MAX=80, Q=0.6;
       let w=img.width, h=img.height;
       if(w>h&&w>MAX){h=Math.round(h*MAX/w);w=MAX;}
       else if(h>w&&h>MAX){w=Math.round(w*MAX/h);h=MAX;}
-      else if(w>MAX){w=MAX;h=MAX;}
+      else{w=Math.min(w,MAX);h=Math.min(h,MAX);}
       const canvas=document.createElement("canvas");
       canvas.width=w; canvas.height=h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
@@ -847,18 +848,15 @@ async function doSubmit(){
 
 function uploadPhotoAfter(time,code,phone){
   if(!photoBase64)return;
-  fetch(SCRIPT_URL,{
-    method:'POST',
-    mode:'no-cors',
-    headers:{'Content-Type':'text/plain'},
-    body:JSON.stringify({
-      action:'photo',
-      rowTimestamp:time,
-      storeCode:code,
-      customerPhone:phone,
-      photoData:photoBase64
-    })
-  }).catch(()=>{});
+  // GET 請求：photo data 壓縮後約 1KB，可放進 URL param
+  const p=new URLSearchParams({
+    action:'photo',
+    ts:time,
+    code:code,
+    phone:phone,
+    d:photoBase64
+  }).toString();
+  fetch(SCRIPT_URL+'?'+p,{method:'GET',mode:'no-cors'}).catch(()=>{});
 }
 
 function showSuccess(total,time,name,phone,code){
