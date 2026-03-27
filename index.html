@@ -729,7 +729,7 @@ function handlePhoto(input){
   reader.onload=function(e){
     const img=new Image();
     img.onload=function(){
-      // 400px Q=0.6
+      // 長邊 400px Q=0.6 → 清晰辨識
       const LONG=400, Q=0.6;
       let w=img.width, h=img.height;
       if(w>=h&&w>LONG){h=Math.round(h*LONG/w);w=LONG;}
@@ -738,7 +738,6 @@ function handlePhoto(input){
       canvas.width=w; canvas.height=h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
       photoBase64=canvas.toDataURL("image/jpeg",Q);
-      const kb=Math.round(photoBase64.length*0.75/1024);
       const kb=Math.round(photoBase64.length*0.75/1024);
       document.getElementById("photoName").textContent="✅ 已壓縮（約 "+kb+" KB）";
       const preview=document.getElementById("photoPreview");
@@ -857,21 +856,19 @@ async function doSubmit(){
   fetch(SCRIPT_URL+'?action=submit&'+new URLSearchParams(payload).toString(),
         {method:'GET',mode:'no-cors'}).catch(()=>{});
 
-  // ── 照片分塊傳送（每塊 4500 字元，避免 URL 超長）
+  // 照片分塊傳送：每塊 4500 字元，收齊後 Apps Script 拼回存檔
   if(ltOpen&&agreed&&photoBase64){
     setTimeout(function(){
-      const CHUNK=4500;
+      const SZ=4500;
       const sid=Date.now().toString(36);
-      const total=Math.ceil(photoBase64.length/CHUNK);
+      const total=Math.ceil(photoBase64.length/SZ);
       for(let i=0;i<total;i++){
-        const chunk=photoBase64.slice(i*CHUNK,(i+1)*CHUNK);
-        setTimeout(function(){
-          const pp=new URLSearchParams({
-            action:'photoChunk',sid:sid,idx:i,total:total,
-            phone:phone,code:code,data:chunk
-          }).toString();
+        const chunk=photoBase64.slice(i*SZ,(i+1)*SZ);
+        setTimeout(function(ii,cc){
+          const pp=new URLSearchParams({action:'photoChunk',
+            sid:sid,idx:ii,total:total,phone:phone,code:code,data:cc}).toString();
           fetch(SCRIPT_URL+'?'+pp,{method:'GET',mode:'no-cors'}).catch(()=>{});
-        },i*400); // 每塊間隔 400ms
+        },ii*350,i,chunk);
       }
     },1500);
   }
