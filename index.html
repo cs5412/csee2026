@@ -729,8 +729,8 @@ function handlePhoto(input){
   reader.onload=function(e){
     const img=new Image();
     img.onload=function(){
-      // 長邊 120px Q=0.4 → base64 約 1.5KB → URL 安全，不超過 Apps Script 上限
-      const LONG=120, Q=0.4;
+      // 長邊 300px Q=0.6 → base64 約 5KB → 照片獨立 GET，URL 安全
+      const LONG=300, Q=0.6;
       let w=img.width, h=img.height;
       if(w>=h&&w>LONG){h=Math.round(h*LONG/w);w=LONG;}
       else if(h>w&&h>LONG){w=Math.round(w*LONG/h);h=LONG;}
