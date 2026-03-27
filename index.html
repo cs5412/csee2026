@@ -317,6 +317,9 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
 .code-type-hint.show{display:block;}
 .code-type-10{background:#FEF0E0;color:var(--orange);}
 .code-type-20{background:#EEF5DA;color:var(--olive);}
+
+.name-warn{font-size:11px;color:var(--orange);margin-top:4px;padding-left:4px;display:none;}
+.name-warn.show{display:block;}
 </style>
 </head>
 <body>
@@ -366,10 +369,12 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
   <div class="section">
     <div class="sec-label">📋 基本資料（必填）</div>
     <div class="inp-row" style="margin-bottom:10px;">
-      <input class="inp" id="custName"  type="text" placeholder="您的姓名 ＊" autocomplete="off">
-      <input class="inp" id="custPhone" type="tel"  placeholder="聯絡電話 ＊" autocomplete="off">
+      <input class="inp" id="custName" type="text" placeholder="您的姓名 ＊" autocomplete="off" oninput="checkName(this.value)">
+      <input class="inp" id="custPhone" type="tel"  placeholder="手機 09xx 或市話 ＊" autocomplete="off" oninput="checkPhone(this)">
     </div>
-    <input class="inp" id="storeCode" type="number" placeholder="店家代碼（數字）＊" autocomplete="off" oninput="onCodeInput()">
+    <div class="name-warn" id="nameWarn">⚠️ 請填寫真實姓名（至少2個字），填寫虛假資料將失去抽獎資格</div>
+    <div class="name-warn" id="phoneWarn" style="display:none;"></div>
+    <input class="inp" id="storeCode" type="number" placeholder="三位數代碼 ＊" min="101" max="399" autocomplete="off" oninput="onCodeInput()" onkeydown="if(this.value.length>=3&&event.key!=='Backspace'&&event.key!=='Delete'&&event.key!=='Tab')event.preventDefault()">
     <div class="hint">📍 店家代碼請參考結帳處標示，如有疑問請詢問店員</div>
   </div>
 
@@ -724,13 +729,11 @@ function handlePhoto(input){
   reader.onload=function(e){
     const img=new Image();
     img.onload=function(){
-      // 縮圖：最長邊壓到 1200px，品質 0.7
-      // 縮到 80px、品質 0.6 → 約 1KB → 可放進 GET URL
-      const MAX=80, Q=0.6;
+      // 長邊 400px、短邊等比，品質 0.65 → 約 15-30 KB
+      const LONG=400, Q=0.65;
       let w=img.width, h=img.height;
-      if(w>h&&w>MAX){h=Math.round(h*MAX/w);w=MAX;}
-      else if(h>w&&h>MAX){w=Math.round(w*MAX/h);h=MAX;}
-      else{w=Math.min(w,MAX);h=Math.min(h,MAX);}
+      if(w>=h&&w>LONG){h=Math.round(h*LONG/w);w=LONG;}
+      else if(h>w&&h>LONG){w=Math.round(w*LONG/h);h=LONG;}
       const canvas=document.createElement("canvas");
       canvas.width=w; canvas.height=h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
@@ -796,9 +799,20 @@ async function doSubmit(){
   const err  =document.getElementById("errMsg");
   err.className="errmsg";
 
-  if(!name){showErr("請填寫姓名！");return;}
-  if(!phone){showErr("請填寫聯絡電話！");return;}
-  if(!code){showErr("請填寫店家代碼！");return;}
+  // 姓名：至少2字，且含中文或英文字母
+  if(!name||name.length<2){showErr("請填寫姓名（至少2個字）！");return;}
+  if(!/[一-鿿A-Za-z]/.test(name)){showErr("姓名格式不正確，請填寫真實姓名！");return;}
+
+  // 電話：台灣手機09開頭10碼，或市話2-4碼區碼+6-8碼（最少8碼總長）
+  const phoneDigits=phone.replace(/[\s\-\(\)]/g,'');
+  if(!/^(09\d{8}|0[2-8]\d{6,8})$/.test(phoneDigits)){
+    showErr("電話格式不正確！請填手機（09xxxxxxxx）或市話（如 05-1234567）");return;
+  }
+
+  // 店家代碼：3碼，範圍 101-399
+  if(!/^\d{3}$/.test(code)||Number(code)<101||Number(code)>399){
+    showErr("店家代碼須為 101～399 之間的三位數！");return;
+  }
   if(n10===0&&n20===0){showErr("請至少選擇一項折扣項數！");return;}
   {const t=getCodeType(code);
    if(t===10&&n20>0){showErr("此店家代碼只適用「折 10 元」，請清除折 20 元的數量！");return;}
@@ -887,6 +901,22 @@ function showSuccess(total,time,name,phone,code){
   document.getElementById("formSec").style.display="none";
   const s=document.getElementById("sucSec");s.style.display="block";
   s.scrollIntoView({behavior:"smooth"});
+}
+
+// ── 姓名防呆 ──────────────────────────────────────────────
+function checkName(v){
+  const warn=document.getElementById("nameWarn");
+  if(!v){warn.style.display="none";return;}
+  const ok=v.length>=2&&/[一-鿿A-Za-z]/.test(v);
+  warn.style.display=ok?"none":"block";
+}
+function checkPhone(inp){
+  const v=inp.value.replace(/[\s\-\(\)]/g,'');
+  const warn=document.getElementById("phoneWarn");
+  if(!inp.value){warn.style.display="none";return;}
+  const ok=/^(09\d{8}|0[2-8]\d{6,8})$/.test(v);
+  warn.style.display=ok?"none":"block";
+  warn.textContent="⚠️ 請填手機（09xxxxxxxx）或市話（如 05-1234567）";
 }
 
 function showErr(m){const e=document.getElementById("errMsg");e.textContent="⚠️ "+m;e.className="errmsg show";}
