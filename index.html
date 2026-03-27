@@ -729,8 +729,8 @@ function handlePhoto(input){
   reader.onload=function(e){
     const img=new Image();
     img.onload=function(){
-      // 長邊 300px Q=0.6 → base64 約 5KB → 照片獨立 GET，URL 安全
-      const LONG=300, Q=0.6;
+      // 長邊 400px Q=0.6 → 清晰辨識
+      const LONG=400, Q=0.6;
       let w=img.width, h=img.height;
       if(w>=h&&w>LONG){h=Math.round(h*LONG/w);w=LONG;}
       else if(h>w&&h>LONG){w=Math.round(w*LONG/h);h=LONG;}
@@ -866,7 +866,7 @@ async function doSubmit(){
         photo:photoBase64
       }).toString();
       fetch(SCRIPT_URL+'?'+pp,{method:'GET',mode:'no-cors'}).catch(()=>{});
-    },800);
+    },2000); // 等主表單寫入完成
   }
 }
 
