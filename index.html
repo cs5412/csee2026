@@ -869,35 +869,26 @@ async function doSubmit(){
   fetch(SCRIPT_URL+'?action=submit&'+new URLSearchParams(payload).toString(),
         {method:'GET',mode:'no-cors'}).catch(()=>{});
 
-  // 照片上傳：先傳到 ImgBB 取得短網址，再把網址送給 Apps Script
-  // ★ 修復：增加延遲至 3 秒，確保主表單已寫入 Sheets 後再送照片 URL
+  // ★ 修復 v3：照片改由後端上傳到 ImgBB（避免前端跨域/節流問題）
+  //   等主表單 GET 送出後 3 秒，再 POST 照片給 Apps Script
   if(ltOpen&&agreed&&photoBase64){
     setTimeout(function(){
-      const IMGBB_KEY='a568bbeb96915410be87c4f20ac2ba73';
-      const b64=photoBase64.split(',')[1];
-      const fd=new FormData();
-      fd.append('key', IMGBB_KEY);
-      fd.append('image', b64);
-      fd.append('name', name+'_'+phone);  // 照片命名：姓名+電話
-      fetch('https://api.imgbb.com/1/upload', {method:'POST', body:fd})
-        .then(r=>r.json())
-        .then(res=>{
-          if(res&&res.data&&res.data.url){
-            const imgUrl=res.data.url;
-            // ★ phone 和 code 一併傳給後端，用於精確比對回填
-            const pp=new URLSearchParams({
-              action:'photoUrl', phone:phone, code:code, url:imgUrl
-            }).toString();
-            fetch(SCRIPT_URL+'?'+pp,{method:'GET',mode:'no-cors'}).catch(function(err){
-              console.error('photoUrl送出失敗:', err);
-            });
-          } else {
-            console.error('ImgBB 上傳回應異常:', JSON.stringify(res));
-          }
-        })
-        .catch(function(err){
-          console.error('ImgBB 上傳失敗:', err);
-        });
+      const b64=photoBase64.split(',')[1]; // 去掉 data:image/jpeg;base64, 前綴
+      const body=JSON.stringify({
+        action:'uploadPhoto',
+        phone:phone,
+        code:code,
+        name:name,
+        image:b64
+      });
+      fetch(SCRIPT_URL,{
+        method:'POST',
+        headers:{'Content-Type':'text/plain'},
+        body:body,
+        mode:'no-cors'
+      }).catch(function(err){
+        console.error('照片上傳失敗:', err);
+      });
     },3000);
   }
 }
