@@ -869,26 +869,51 @@ async function doSubmit(){
   fetch(SCRIPT_URL+'?action=submit&'+new URLSearchParams(payload).toString(),
         {method:'GET',mode:'no-cors'}).catch(()=>{});
 
-  // ★ 修復 v3：照片改由後端上傳到 ImgBB（避免前端跨域/節流問題）
-  //   等主表單 GET 送出後 3 秒，再 POST 照片給 Apps Script
+  // ★ v4：照片用隱藏 form + iframe POST 到 Apps Script
+  //   form submit 天生 follow redirect，不受 CORS/no-cors 限制
+  //   Apps Script doPost 存到 Google Drive 並回填 Sheet
   if(ltOpen&&agreed&&photoBase64){
     setTimeout(function(){
-      const b64=photoBase64.split(',')[1]; // 去掉 data:image/jpeg;base64, 前綴
-      const body=JSON.stringify({
-        action:'uploadPhoto',
-        phone:phone,
-        code:code,
-        name:name,
-        image:b64
-      });
-      fetch(SCRIPT_URL,{
-        method:'POST',
-        headers:{'Content-Type':'text/plain'},
-        body:body,
-        mode:'no-cors'
-      }).catch(function(err){
-        console.error('照片上傳失敗:', err);
-      });
+      try{
+        const b64=photoBase64.split(',')[1]; // 去掉 data:image/jpeg;base64, 前綴
+
+        // 建立隱藏 iframe（接收 form 回應）
+        var ifr=document.getElementById('_photoIframe');
+        if(!ifr){
+          ifr=document.createElement('iframe');
+          ifr.id='_photoIframe';
+          ifr.name='_photoIframe';
+          ifr.style.display='none';
+          document.body.appendChild(ifr);
+        }
+
+        // 建立隱藏 form
+        var frm=document.getElementById('_photoForm');
+        if(frm) frm.remove();
+        frm=document.createElement('form');
+        frm.id='_photoForm';
+        frm.method='POST';
+        frm.action=SCRIPT_URL;
+        frm.target='_photoIframe'; // 結果送進隱藏 iframe
+        frm.style.display='none';
+
+        function addField(n,v){
+          var inp=document.createElement('input');
+          inp.type='hidden'; inp.name=n; inp.value=v;
+          frm.appendChild(inp);
+        }
+        addField('action','uploadPhoto');
+        addField('phone',phone);
+        addField('code',code);
+        addField('name',name);
+        addField('image',b64);
+
+        document.body.appendChild(frm);
+        frm.submit();
+        console.log('照片已送出（form POST），b64 長度=' + b64.length);
+      }catch(err){
+        console.error('照片送出失敗:', err);
+      }
     },3000);
   }
 }
