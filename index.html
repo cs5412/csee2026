@@ -869,38 +869,40 @@ async function doSubmit(){
   fetch(SCRIPT_URL+'?action=submit&'+new URLSearchParams(payload).toString(),
         {method:'GET',mode:'no-cors'}).catch(()=>{});
 
-  // ★ v6：照片分塊 GET 上傳到 Apps Script → 存 Google Drive
-  //   不依賴 ImgBB，不用 POST（跨域 POST body 會被丟棄）
-  //   每塊 ~7000 字元的 base64，用 GET URL 參數送出
+  // ★ v8：照片分塊用 action=submit 送出（因為 photoChunk 被 Google 攔截）
+  //   submit 是唯一能可靠觸發 doGet 的 action
+  //   在 submit 參數裡加 photoSid/photoIdx/photoTotal/photoData
+  //   後端 submitForm 偵測到 photoSid 就轉去處理照片
   if(ltOpen&&agreed&&photoBase64){
     setTimeout(function(){
       try{
-        const b64=photoBase64.split(',')[1]; // 去掉 data:image/...;base64, 前綴
+        const b64=photoBase64.split(',')[1];
         const CHUNK_SIZE=7000;
         const totalChunks=Math.ceil(b64.length/CHUNK_SIZE);
         const sid=Date.now().toString(36)+Math.random().toString(36).substr(2,6);
-        console.log('照片分塊上傳：b64長度='+b64.length+' 分'+totalChunks+'塊 sid='+sid);
+        console.log('照片分塊：b64='+b64.length+' 分'+totalChunks+'塊 sid='+sid);
 
         for(let i=0;i<totalChunks;i++){
           const chunk=b64.substr(i*CHUNK_SIZE, CHUNK_SIZE);
           const params=new URLSearchParams({
-            action:'photoChunk',
-            sid:sid,
-            idx:String(i),
-            total:String(totalChunks),
-            data:chunk,
-            phone:phone,
-            code:code,
-            name:name
+            action:'submit',
+            photoSid:sid,
+            photoIdx:String(i),
+            photoTotal:String(totalChunks),
+            photoData:chunk,
+            photoPhone:phone,
+            photoCode:code,
+            photoName:name
           });
-          const url=SCRIPT_URL+'?'+params.toString();
-          console.log('送出 chunk '+i+'/'+totalChunks+' len='+chunk.length+' urlLen='+url.length);
-          fetch(url,{method:'GET',mode:'no-cors'}).catch(function(err){
-            console.error('chunk '+i+' 失敗:',err);
-          });
+          // ★ 每塊間隔 1.5 秒，避免 Google 併發限制
+          setTimeout(function(url,idx){
+            fetch(url,{method:'GET',mode:'no-cors'}).catch(function(err){
+              console.error('chunk '+idx+' 失敗:',err);
+            });
+          }, i*1500, SCRIPT_URL+'?'+params.toString(), i);
         }
       }catch(err){
-        console.error('照片分塊上傳失敗:',err);
+        console.error('照片分塊失敗:',err);
       }
     },3000);
   }
