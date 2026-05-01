@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Apps Script 連線測試</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:sans-serif;max-width:600px;margin:20px auto;padding:0 15px}
+button{padding:12px 20px;margin:8px 4px;font-size:16px;cursor:pointer;border-radius:8px;border:1px solid #ccc}
+.ok{color:green;font-weight:bold}
+.fail{color:red;font-weight:bold}
+#log{background:#f5f5f5;padding:15px;margin:10px 0;border-radius:8px;font-family:monospace;font-size:13px;white-space:pre-wrap;max-height:400px;overflow-y:auto}
+</style>
+</head>
+<body>
+<h2>🔍 Apps Script 連線診斷</h2>
+<p>請依序點擊下面的按鈕，測試每個功能是否正常：</p>
+
+<h3>測試 1：GET 請求（跟表單送出一樣的方式）</h3>
+<button onclick="testGet()">測試 GET</button>
+<div id="r1"></div>
+
+<h3>測試 2：Form POST（照片上傳方式）</h3>
+<button onclick="testFormPost()">測試 Form POST</button>
+<div id="r2"></div>
+
+<h3>測試 3：Fetch POST（備用方式）</h3>
+<button onclick="testFetchPost()">測試 Fetch POST</button>
+<div id="r3"></div>
+
+<h3>測試 4：實際送一張小照片</h3>
+<button onclick="testPhoto()">測試照片上傳</button>
+<div id="r4"></div>
+
+<h3>📋 完整日誌</h3>
+<div id="log"></div>
+
+<!-- 隱藏 iframe 接收 form POST 回應 -->
+<iframe id="postFrame" name="postFrame" style="display:none"></iframe>
+
+<script>
+// ★ 請確認這是你最新部署的 URL
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbw5oWLb0RGYD0oCg8qoMt_X3TSjmm0h0FvXerL3XqlSvs4A1CvtIVpxgimIP7HBegmsJQ/exec";
+
+function log(msg){
+  const el=document.getElementById('log');
+  const time=new Date().toLocaleTimeString();
+  el.textContent = '['+time+'] '+msg+'\n' + el.textContent;
+  console.log(msg);
+}
+
+// ── 測試 1：GET（跟主表單一樣的方式）──
+function testGet(){
+  const el=document.getElementById('r1');
+  el.innerHTML='⏳ 測試中...';
+  log('GET 測試開始...');
+
+  // 用一個不存在的 action 來測試，doGet 會回傳首頁 HTML
+  const url=SCRIPT_URL+'?action=ping&t='+Date.now();
+  
+  fetch(url,{method:'GET',mode:'no-cors'})
+    .then(function(){
+      el.innerHTML='<span class="ok">✅ GET 請求已送出（no-cors 無法讀取回應，但請求應已到達）</span>';
+      log('GET: fetch 完成（opaque response，正常）');
+    })
+    .catch(function(err){
+      el.innerHTML='<span class="fail">❌ GET 失敗: '+err.message+'</span>';
+      log('GET 失敗: '+err.message);
+    });
+}
+
+// ── 測試 2：Form POST ──
+function testFormPost(){
+  const el=document.getElementById('r2');
+  el.innerHTML='⏳ 測試中...';
+  log('Form POST 測試開始...');
+
+  // 監聽 iframe 載入事件
+  const ifr=document.getElementById('postFrame');
+  ifr.onload=function(){
+    try{
+      // 嘗試讀取 iframe 內容（跨域可能失敗，但沒關係）
+      var body=ifr.contentDocument?ifr.contentDocument.body.textContent:'(跨域無法讀取)';
+      el.innerHTML='<span class="ok">✅ Form POST 完成！iframe 回應: '+body.substring(0,100)+'</span>';
+      log('Form POST: iframe loaded, body='+body.substring(0,200));
+    }catch(e){
+      el.innerHTML='<span class="ok">✅ Form POST 已送出（iframe 跨域無法讀取回應，但 doPost 應已觸發）</span>';
+      log('Form POST: iframe loaded but cross-origin (expected)');
+    }
+  };
+
+  // 建立 form
+  var frm=document.createElement('form');
+  frm.method='POST';
+  frm.action=SCRIPT_URL;
+  frm.target='postFrame';
+  frm.style.display='none';
+
+  function addField(n,v){
+    var inp=document.createElement('input');
+    inp.type='hidden'; inp.name=n; inp.value=v;
+    frm.appendChild(inp);
+  }
+  addField('action','testPost');
+  addField('testData','hello_from_form_'+Date.now());
+
+  document.body.appendChild(frm);
+  frm.submit();
+  frm.remove();
+  log('Form POST: form submitted');
+
+  // 10 秒 timeout
+  setTimeout(function(){
+    if(el.innerHTML.includes('測試中')){
+      el.innerHTML='<span class="fail">❌ Form POST 逾時（10秒無回應）</span>';
+      log('Form POST: TIMEOUT');
+    }
+  },10000);
+}
+
+// ── 測試 3：Fetch POST ──
+function testFetchPost(){
+  const el=document.getElementById('r3');
+  el.innerHTML='⏳ 測試中...';
+  log('Fetch POST 測試開始...');
+
+  fetch(SCRIPT_URL,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({action:'testFetch',t:Date.now()}),
+    mode:'no-cors'
+  })
+  .then(function(){
+    el.innerHTML='<span class="ok">✅ Fetch POST 已送出（no-cors opaque response）</span>';
+    log('Fetch POST: completed (opaque)');
+  })
+  .catch(function(err){
+    el.innerHTML='<span class="fail">❌ Fetch POST 失敗: '+err.message+'</span>';
+    log('Fetch POST 失敗: '+err.message);
+  });
+}
+
+// ── 測試 4：實際送一張 1x1 pixel 的小照片 ──
+function testPhoto(){
+  const el=document.getElementById('r4');
+  el.innerHTML='⏳ 正在產生測試圖片並上傳...';
+  log('照片測試開始...');
+
+  // 產生一張 1x1 紅色像素的 JPEG base64
+  var canvas=document.createElement('canvas');
+  canvas.width=10; canvas.height=10;
+  var ctx=canvas.getContext('2d');
+  ctx.fillStyle='red';
+  ctx.fillRect(0,0,10,10);
+  var dataUrl=canvas.toDataURL('image/jpeg',0.8);
+  var b64=dataUrl.split(',')[1];
+  log('測試圖片 base64 長度: '+b64.length);
+
+  // 用 form POST 送出
+  var ifr=document.getElementById('postFrame');
+  ifr.onload=function(){
+    try{
+      var body=ifr.contentDocument?ifr.contentDocument.body.textContent:'(跨域)';
+      el.innerHTML='<span class="ok">✅ 照片上傳完成！回應: '+body.substring(0,200)+'</span>';
+      log('照片上傳: 完成, body='+body.substring(0,300));
+    }catch(e){
+      el.innerHTML='<span class="ok">✅ 照片已送出（請到 Apps Script 執行項目 和 Google Drive 確認）</span>';
+      log('照片上傳: iframe cross-origin (check Apps Script logs)');
+    }
+  };
+
+  var frm=document.createElement('form');
+  frm.method='POST';
+  frm.action=SCRIPT_URL;
+  frm.target='postFrame';
+  frm.style.display='none';
+
+  function addField(n,v){
+    var inp=document.createElement('input');
+    inp.type='hidden'; inp.name=n; inp.value=v;
+    frm.appendChild(inp);
+  }
+  addField('action','uploadPhoto');
+  addField('phone','0900000000');
+  addField('code','999');
+  addField('name','測試用戶');
+  addField('image',b64);
+
+  document.body.appendChild(frm);
+  frm.submit();
+  frm.remove();
+  log('照片 form submitted, b64 length='+b64.length);
+
+  setTimeout(function(){
+    if(el.innerHTML.includes('測試中')){
+      el.innerHTML='<span class="fail">❌ 照片上傳逾時（10秒無回應）</span>';
+      log('照片上傳: TIMEOUT');
+    }
+  },10000);
+}
+</script>
+</body>
+</html>
