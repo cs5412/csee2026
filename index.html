@@ -869,50 +869,38 @@ async function doSubmit(){
   fetch(SCRIPT_URL+'?action=submit&'+new URLSearchParams(payload).toString(),
         {method:'GET',mode:'no-cors'}).catch(()=>{});
 
-  // ★ v4：照片用隱藏 form + iframe POST 到 Apps Script
-  //   form submit 天生 follow redirect，不受 CORS/no-cors 限制
-  //   Apps Script doPost 存到 Google Drive 並回填 Sheet
+  // ★ v6：照片分塊 GET 上傳到 Apps Script → 存 Google Drive
+  //   不依賴 ImgBB，不用 POST（跨域 POST body 會被丟棄）
+  //   每塊 ~7000 字元的 base64，用 GET URL 參數送出
   if(ltOpen&&agreed&&photoBase64){
     setTimeout(function(){
       try{
-        const b64=photoBase64.split(',')[1]; // 去掉 data:image/jpeg;base64, 前綴
+        const b64=photoBase64.split(',')[1]; // 去掉 data:image/...;base64, 前綴
+        const CHUNK_SIZE=7000;
+        const totalChunks=Math.ceil(b64.length/CHUNK_SIZE);
+        const sid=Date.now().toString(36)+Math.random().toString(36).substr(2,6);
+        console.log('照片分塊上傳：b64長度='+b64.length+' 分'+totalChunks+'塊 sid='+sid);
 
-        // 建立隱藏 iframe（接收 form 回應）
-        var ifr=document.getElementById('_photoIframe');
-        if(!ifr){
-          ifr=document.createElement('iframe');
-          ifr.id='_photoIframe';
-          ifr.name='_photoIframe';
-          ifr.style.display='none';
-          document.body.appendChild(ifr);
+        for(let i=0;i<totalChunks;i++){
+          const chunk=b64.substr(i*CHUNK_SIZE, CHUNK_SIZE);
+          const params=new URLSearchParams({
+            action:'photoChunk',
+            sid:sid,
+            idx:String(i),
+            total:String(totalChunks),
+            data:chunk,
+            phone:phone,
+            code:code,
+            name:name
+          });
+          const url=SCRIPT_URL+'?'+params.toString();
+          console.log('送出 chunk '+i+'/'+totalChunks+' len='+chunk.length+' urlLen='+url.length);
+          fetch(url,{method:'GET',mode:'no-cors'}).catch(function(err){
+            console.error('chunk '+i+' 失敗:',err);
+          });
         }
-
-        // 建立隱藏 form
-        var frm=document.getElementById('_photoForm');
-        if(frm) frm.remove();
-        frm=document.createElement('form');
-        frm.id='_photoForm';
-        frm.method='POST';
-        frm.action=SCRIPT_URL;
-        frm.target='_photoIframe'; // 結果送進隱藏 iframe
-        frm.style.display='none';
-
-        function addField(n,v){
-          var inp=document.createElement('input');
-          inp.type='hidden'; inp.name=n; inp.value=v;
-          frm.appendChild(inp);
-        }
-        addField('action','uploadPhoto');
-        addField('phone',phone);
-        addField('code',code);
-        addField('name',name);
-        addField('image',b64);
-
-        document.body.appendChild(frm);
-        frm.submit();
-        console.log('照片已送出（form POST），b64 長度=' + b64.length);
       }catch(err){
-        console.error('照片送出失敗:', err);
+        console.error('照片分塊上傳失敗:',err);
       }
     },3000);
   }
