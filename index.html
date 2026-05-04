@@ -633,7 +633,7 @@ body{font-family:"Noto Sans TC",sans-serif;background:var(--cream);min-height:10
   </div>
   <div id="ltBadge"></div>
   <button class="back-btn" onclick="doReset()">← 返回填寫下一筆</button>
-  <a href="https://r.botbonnie.com/E_dMA" target="_blank" class="earth-btn">🌍 加碼！點擊領取世界地球日抽獎券</a>
+
   <button class="undo-btn" id="undoBtn" onclick="doUndo()">↩ 發現填錯？撤銷這筆送出</button>
   <div class="undo-msg" id="undoMsg"></div>
 </div>
@@ -742,8 +742,8 @@ function handlePhoto(input){
   reader.onload=function(e){
     const img=new Image();
     img.onload=function(){
-      // 長邊 400px Q=0.6 → 清晰辨識
-      const LONG=400, Q=0.6;
+      // 長邊 300px Q=0.4 → 足夠辨識自備容器，減少上傳量
+      const LONG=300, Q=0.4;
       let w=img.width, h=img.height;
       if(w>=h&&w>LONG){h=Math.round(h*LONG/w);w=LONG;}
       else if(h>w&&h>LONG){w=Math.round(w*LONG/h);h=LONG;}
@@ -869,10 +869,8 @@ async function doSubmit(){
   fetch(SCRIPT_URL+'?action=submit&'+new URLSearchParams(payload).toString(),
         {method:'GET',mode:'no-cors'}).catch(()=>{});
 
-  // ★ v8：照片分塊用 action=submit 送出（因為 photoChunk 被 Google 攔截）
-  //   submit 是唯一能可靠觸發 doGet 的 action
-  //   在 submit 參數裡加 photoSid/photoIdx/photoTotal/photoData
-  //   後端 submitForm 偵測到 photoSid 就轉去處理照片
+  // ★ v9：照片序列化分塊上傳（等前一塊完成再送下一塊）
+  //   解決 Google Apps Script 併發限制導致丟塊的問題
   if(ltOpen&&agreed&&photoBase64){
     setTimeout(function(){
       try{
@@ -880,9 +878,11 @@ async function doSubmit(){
         const CHUNK_SIZE=7000;
         const totalChunks=Math.ceil(b64.length/CHUNK_SIZE);
         const sid=Date.now().toString(36)+Math.random().toString(36).substr(2,6);
-        console.log('照片分塊：b64='+b64.length+' 分'+totalChunks+'塊 sid='+sid);
+        console.log('照片序列上傳：b64='+b64.length+' 分'+totalChunks+'塊 sid='+sid);
 
-        for(let i=0;i<totalChunks;i++){
+        // ★ 序列化：一塊一塊送，每塊等 2 秒後再送下一塊
+        function sendChunk(i){
+          if(i>=totalChunks) return;
           const chunk=b64.substr(i*CHUNK_SIZE, CHUNK_SIZE);
           const params=new URLSearchParams({
             action:'submit',
@@ -894,15 +894,21 @@ async function doSubmit(){
             photoCode:code,
             photoName:name
           });
-          // ★ 每塊間隔 1.5 秒，避免 Google 併發限制
-          setTimeout(function(url,idx){
-            fetch(url,{method:'GET',mode:'no-cors'}).catch(function(err){
-              console.error('chunk '+idx+' 失敗:',err);
+          console.log('送出 chunk '+i+'/'+totalChunks);
+          fetch(SCRIPT_URL+'?'+params.toString(),{method:'GET',mode:'no-cors'})
+            .then(function(){
+              console.log('chunk '+i+' 完成');
+              // ★ 等 2 秒再送下一塊，確保前一塊已處理完
+              setTimeout(function(){ sendChunk(i+1); }, 2000);
+            })
+            .catch(function(err){
+              console.error('chunk '+i+' 失敗，重試:', err);
+              setTimeout(function(){ sendChunk(i); }, 3000);
             });
-          }, i*1500, SCRIPT_URL+'?'+params.toString(), i);
         }
+        sendChunk(0);
       }catch(err){
-        console.error('照片分塊失敗:',err);
+        console.error('照片上傳失敗:',err);
       }
     },3000);
   }
